@@ -1,22 +1,22 @@
 #%%
 import numpy as np
-import matplotlib.pyplot as plt
 
 ## Interpolation
 
 def interpolation_node_to_edge(v):
     '''
-    :v: u (node)
+    :v: eta (node)
     :return: interpolation of two points edge
     '''
     return linear_interpolation(v,np.insert([v[0]],0,v[1:]))
 
 def interpolation_edge_to_node(v):
     '''
-    :v: eta (edge)
+    :v: u (edge)
     :return: interpolation of two points node
     '''
     return linear_interpolation(v,np.insert(v[0:-1],0,v[-1]))
+    # return np.insert(linear_interpolation(v[0:-1],v[1:]),0,[0])
 
 def linear_interpolation(v1,v2):
     '''
