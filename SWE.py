@@ -6,6 +6,7 @@ class SWE:
         :fuction: Initialize the parameters
         '''
         import numpy as np
+        self.__BoundaryCondition = "Periodic"
         self.__N = 200
         ''' Number of cell in x '''
 
@@ -33,8 +34,10 @@ class SWE:
         ''' Wave speed '''
         self.__dt = self.__dx/(2*self.__c)
         ''' Step size '''
-        self.__nu = 1
-        ''' Stability constant '''
+        self.__cnu = 0.01
+        ''' Non-dimensionalized stability constant'''
+        self.__nu = self.__cnu*self.__dx**2/self.__dt
+        ''' Stability constant (=c*dx^2/dt) '''
         self.__t_step = int(self.__t_end/self.__dt)
         ''' Number of time steps '''
         self.__t = np.linspace(0,self.__t_end,self.__t_step)
@@ -73,7 +76,7 @@ class SWE:
         ''' Difference of eta '''
         self.__Nerror = 0
         ''' Norm error '''
-
+    
     def set_var(self):
         import numpy as np
         ### Parameter about x and t
@@ -85,8 +88,10 @@ class SWE:
         ''' Wave speed '''
         self.__dt = self.__dx/(2*self.__c)
         ''' Step size '''
-        self.__nu = 1
-        ''' Stability constant '''
+        self.__cnu = 0.01
+        ''' Non-dimensionalized stability constant'''
+        self.__nu = self.__cnu*self.__dx**2/self.__dt
+        ''' Stability constant (=c*dx^2/dt) '''
         self.__t_step=int(self.__t_end/self.__dt)
         ''' Number of time steps '''
         self.__t = np.linspace(0,self.__t_end,self.__t_step)
@@ -131,7 +136,7 @@ class SWE:
         self.__error_eta = self.__eta_s - self.__eta
         ''' Difference of eta '''
         self.__Nerror = 0
-        ''' Norm error ''' 
+        ''' Norm error '''
 
     def set_const(self):
         self.__N = int((self.__x_end-self.__x_sta)/self.__dx)
@@ -150,6 +155,7 @@ class SWE:
         :fuction: Check the parameters
         '''
         match component:
+            case "BoundaryCondition": return self.__BoundaryCondition
             case "N": return self.__N
             case "x_end": return self.__x_end
             case "x_sta": return self.__x_sta
@@ -163,6 +169,8 @@ class SWE:
             case "x": return self.__x
             case "t": return self.__t
             case "c": return self.__c
+            case "cnu": return self.__cnu
+            case "nu": return self.__nu
             case "eta_0": return self.__eta_0
             case "eta": return self.__eta
             case "eta_b": return self.__eta_b
@@ -187,6 +195,8 @@ class SWE:
         '''
         # constant
         match component:
+            case "BoundaryCondition":
+                self.__BoundaryCondition = number
             case "N":
                 self.__N = number
                 self.set_var()
@@ -231,6 +241,9 @@ class SWE:
                 self.__dt = self.__dx/(2*self.__c)
                 self.set_t()
                 self.get_sol()
+            case "cnu":
+                self.__cnu = number
+                self.__nu = self.__cnu*self.__dx**2/self.__dt
             case "eta_0": 
                 self.__eta_0 = number
                 self.__eta = self.__eta_0
@@ -251,6 +264,12 @@ class SWE:
         :self: SWE Class name
         :fuction: Print the list of class
         '''
+        print("Boundary Condition: ",self.__BoundaryCondition)
+        print("---------------------")
+        print("Stabilizer Constant")
+        print("cnu : ", self.__cnu)
+        print("---------------------")
+        print("Initial Condition")
         print("--------  X  --------")
         print("N : ", self.__N)
         print("dx : ", self.__dx)
@@ -264,6 +283,7 @@ class SWE:
         print("H : ", self.__H)
         print("g : ", self.__g)
         print("c : ", self.__c)
+        
 
     def numerical(self, linearity = "linear", method = "euler", time = "all"):
         '''
@@ -273,14 +293,16 @@ class SWE:
         :time: Getting it from the beginning to the end = all, just one step = one.
         :fuction: Get the numerical result
         '''
+        
         eta=self.__eta
         u=self.__u
+        h=self.__h
 
         import Function
-        def flux_ode(t, eta):
-            return Function.Flux(u, self.__h, self.__H, self.__dx, linearity) 
-        def bernoulli_ode(t, u):
-            return Function.Bernoulli(u, eta, self.__g, self.__dx, linearity)
+        def flux_ode(t, u, eta):
+            return Function.Flux(u, eta, self.__H, self.__nu, self.__dx, linearity, self.__BoundaryCondition) 
+        def bernoulli_ode(t, u, eta):
+            return Function.Bernoulli(u, eta, self.__g, self.__dx, linearity, self.__BoundaryCondition)
         
         if (time == "all"):
             timestep = self.__t_step
@@ -291,14 +313,15 @@ class SWE:
         for i in range(0, timestep):
             if (method == "euler"):
                 # Euler Method
-                u = u + self.__dt * bernoulli_ode((i + 1) * self.__dt, u)
-                eta = eta + self.__dt * flux_ode((i + 1) * self.__dt, eta)
+                u = u + self.__dt * bernoulli_ode((i + 1) * self.__dt, u, eta)
+                eta = eta + self.__dt * flux_ode((i + 1) * self.__dt, u, h)
             else:
                 from scipy import integrate
-                sol = integrate.solve_ivp(bernoulli_ode,[i*self.__dt,(i+1)*self.__dt], u, method=method, t_eval=[self.__dt*(i+1)])
+                sol = integrate.solve_ivp(bernoulli_ode,[i*self.__dt,(i+1)*self.__dt], u, eta, method=method, t_eval=[self.__dt*(i+1)])
                 u=sol.y.flatten()
-                sol = integrate.solve_ivp(flux_ode,[i*self.__dt,(i+1)*self.__dt], eta, method=method, t_eval=[self.__dt*(i+1)])
+                sol = integrate.solve_ivp(flux_ode,[i*self.__dt,(i+1)*self.__dt], u, h, method=method, t_eval=[self.__dt*(i+1)])
                 eta=sol.y.flatten()
+            h= eta + self.__H
 
         self.__u = u
         self.__eta = eta
@@ -312,8 +335,9 @@ class SWE:
         :fuction: Calculate(Update) the error
         '''
         import numpy as np
-        L2sq = self.__error_eta**2/self.__eta_s**2
-        L2norm = np.mean(np.sqrt(L2sq))
+        L2sqe = np.mean(self.__error_eta**2)
+        L2sqs = np.mean(self.__eta_s**2)
+        L2norm = np.sqrt(L2sqe/L2sqs)
         self.__Nerror = L2norm
         print(f"L2 norm of eta: {L2norm}")
 
@@ -374,20 +398,21 @@ class SWE:
         f, axes = plt.subplots(figsize = (size_a, size_b))
 
         # Draw reference solution
-        plt.plot(self.__x, self.__eta_s, ls = '-', color = 'm', label = 'eta reference')
-        plt.plot(self.__x + self.__dx * 0.5, self.__u_s, ls = '-', color = 'c', label = 'u reference')
+        # plt.plot(self.__x, self.__eta_s, ls = '-', color = 'm', label = 'eta reference')
+        # plt.plot(self.__x + self.__dx * 0.5, self.__u_s, ls = '-', color = 'c', label = 'u reference')
 
         # Draw numerical results
         plt.scatter(self.__x, self.__eta, color = 'r', s = 5, label = 'eta')
         plt.scatter(self.__x + self.__dx * 0.5, self.__u, color = 'b', s = 5, label = 'u')
-        # plt.plot(self.__x, self.__eta, ls = '-', color = 'r', label = 'eta')
-        # plt.plot(self.__x + self.__dx * 0.5, self.__u, ls = '-', color = 'b', label = 'u')
+        plt.plot(self.__x, self.__eta, ls = '-', color = 'r', label = 'eta',linewidth=1)
+        plt.plot(self.__x + self.__dx * 0.5, self.__u, ls = '-', color = 'b', label = 'u',linewidth=1)
 
         axes.set_title(f"Numerical Result with sigma = {self.__sigma}, N = {self.__N}, t = {self.__t_end}")
         axes.set_xlabel(r"$x$")
         axes.set_ylabel(r"$eta$")
         axes.legend()
         axes.grid()
+        plt.ylim(-0.5,1)
         plt.show()
 
     def plot_error(self, size_a = 6, size_b = 4):
@@ -409,7 +434,7 @@ class SWE:
         plt.ylim(-1,1)
         plt.show()
 
-    def animation(self, size_a = 10, size_b = 6):
+    def animation(self, linearity="linear", size_a = 10, size_b = 6):
         '''
         :self: SWE Class name
         :size_a: Horizontal length of plot
@@ -424,7 +449,7 @@ class SWE:
         data = [[0 for col in range(self.__N + 1)] for row in range(self.__t_step)]
 
         for i in range(0, self.__t_step):
-            self.numerical(time = "one")
+            self.numerical(linearity=linearity, time = "one")
             data[i] = np.append(self.__eta, self.__eta[0])
 
         # Make the Animation
@@ -437,6 +462,10 @@ class SWE:
         def init():    
             ax.set_xlim(self.__x_sta - 1, self.__x_end + 1)
             ax.set_ylim(-0.2, 1.2)
+            ax.set_title(f"Animation with sigma = {self.__sigma}, N = {self.__N}, t = {self.__t_end}")
+            ax.set_xlabel(r"$x$")
+            ax.set_ylabel(r"$eta$")
+            # ax.legend()
             ax.grid(True)
             
             return ln,
@@ -448,41 +477,80 @@ class SWE:
             
             return ln,
 
-        ani = FuncAnimation(fig=fig, func=update, frames=np.array(list(range(self.__t_step))),
+        ani = FuncAnimation(fig=fig, func=update, frames=np.array(list(range(self.__t_step - 400,self.__t_step))), #
                             init_func=init, interval=20, blit=True)
 
         rc('animation', html='html5')
         ani
         ani.save('fig.gif', writer='imagemagick', fps=15, dpi=100)
 
-    def ConvergenceTest(self, dxList = [1, 0.5, 0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001]):
+    def ConvergenceTest(self, dxList = [0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001]):
         # Experiment for the convergence test
         import numpy as np
         import matplotlib.pyplot as plt
+        import time
 
+        test_time = 5
         dx_data = dxList
         N_data = [int((self.get("x_end") - self.get("x_sta")) / x) for x in dx_data]
 
         # change dt, t_step also np.arange
-        data = [0 for row in range(np.size(N_data))]
+        data = [[0 for col in range(np.size(N_data))] for row in range(5)]
+        time_data = [[0 for col in range(np.size(N_data))] for row in range(5)]
+        mean_data = [0 for col in range(np.size(N_data))]
+        mean_time_data = [0 for col in range(np.size(N_data))]
 
-        for j in range(0,np.size(N_data)):
-            self.set("N", N_data[j])
-            self.set("dx", dx_data[j])
-            self.numerical()
-            self.error()
+        size = np.size(N_data)
+        for i in range(test_time):
+            for j in range(0,size):
+                start = time.time()
+                self.set("N", N_data[j])
+                self.set("dx", dx_data[j])
+                self.set("eta_s", self.get("eta_0"))
+                self.set("u_s", self.get("u_0"))
+                self.numerical()
+                self.error()
 
-            data[j] = self.get("Nerror")
+                end = time.time()
+                data[i][j] = self.get("Nerror")
+                time_data[i][j] = end-start
+                #print("The time of execution of above program is :", (end-start) * 10**3, "ms")
+
+        for m in range(size):
+            temp_d = 0
+            temp_t = 0
+            for k in range(test_time):
+                temp_d = temp_d+data[k][m]
+                temp_t = temp_t+time_data[k][m]
+            mean_data[m] = temp_d/test_time
+            mean_time_data[m] = temp_t/test_time
+        print("Average Error :", mean_data)
+        print("Average Runtime(ms) :", mean_time_data)
 
         # Plot the convergence test result
         f, axes = plt.subplots(figsize = (6,4))
         plt.xscale("log")
         plt.yscale("log")
-        plt.plot(dx_data,data)
-        plt.scatter(dx_data,data,label='L2 Norm error',s=10)
+        plt.plot(dx_data,mean_data)
+        plt.scatter(dx_data,mean_data,label='L2 Norm error',s=10)
+        plt.plot(dx_data,pow(np.array(dx_data),2)*100*mean_data[0],color='r',linestyle='dashed')
         axes.set_title(f"Convergence test result")
         axes.set_xlabel(r"$dx$")
         axes.set_ylabel(r"$Error$")
+        axes.legend()
+        axes.grid()
+        plt.show()
+
+
+        f, axes = plt.subplots(figsize = (6,4))
+        plt.xscale("log")
+        plt.yscale("log")
+        plt.plot(dx_data,mean_time_data)
+        plt.scatter(dx_data,mean_time_data,label='Run time',s=10)
+        plt.plot(dx_data,1/pow(np.array(dx_data)*10,2)*mean_time_data[0],color='r',linestyle='dashed')
+        axes.set_title(f"Run time test result")
+        axes.set_xlabel(r"$dx$")
+        axes.set_ylabel(r"$Run time$")
         axes.legend()
         axes.grid()
         plt.show()

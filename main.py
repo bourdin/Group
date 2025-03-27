@@ -1,15 +1,51 @@
 #%%
 ## Library
 from SWE import SWE
+import numpy as np
 test = SWE()
-test.set("N", 200)
-test.set("t_end", 10)
-test.set("eta_s", test.get("eta_0"))
-test.set("u_s", test.get("u_0"))
-test.pflist()
-#test.plot_sol()
-test.numerical()
-test.plot_result()
+test.set("BoundaryCondition","Open")
+test.set("t_end",10)
+test.set("cnu",0.2)
+# test.numerical(linearity = "linear")
+# test.plot_result()
+test.animation(linearity = "linear")
+
+# test.set("BoundaryCondition","SolidWall")
+# test.set("BoundaryCondition","Open")
+# test.set("N",600)
+# test.set("x_end",15)
+# test.set("x_sta",-15)
+# test.set("eta_0",np.exp(-np.square(test.get('x')-2/test.get('sigma')**2)))
+# test.set("eta_0",np.append(np.append(np.zeros(285),np.zeros(30)+0.5),np.zeros(285)))
+# test.plot_ini()
+# test.set("t_end",4)
+# test.set("cnu",0.2)
+# test.pflist()
+# test.numerical(linearity = "non_linear_s")
+# test.numerical(linearity = "non_linear")
+# test.numerical(linearity = "linear")
+# test.plot_result()
+# test.ConvergenceTest()
+# test.animation()
+# test.plot_sol()
+#%% Infinite boudary condition check
+from SWE import SWE
+Btest =SWE()
+Btest.set("stabilizer","off")
+Btest.set("t_end",4)
+Btest.pflist()
+Btest.set("BoundaryCondition","Infinite")
+Btest.numerical(linearity = "linear")
+# Btest.set("BoundaryCondition","SolidWall")
+# Btest.numerical(linearity = "non_linear")
+Btest.plot_result()
+
+
+#%%
+import Function as F
+import numpy as np
+import matplotlib.pyplot as plt
+#%%
 
 
 #%%
@@ -63,40 +99,7 @@ h = H + eta - eta_b                 ## h is depth of each point
 x_sol = np.append(x,x_end)          ## Add the end point(= initial point)
 eta_sol = np.append(eta,eta[0])     ## Add the end point(= initial point)
 
-    
-# %%
-# Experiment for the convergence test
-import numpy as np
-dx_data = [0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001, 0.00001, 0.000001, 0.0000001, 0.00000001]
-N_data = [int((test.get("x_end") - test.get("x_sta")) / x) for x in dx_data]
 
-# change dt, t_step also np.arange
-data = [0 for row in range(np.size(N_data))]
-
-for j in range(0,np.size(N_data)):
-    test.set("N", N_data[j])
-    test.set("dx", dx_data[j])
-    test.numerical()
-    test.error()
-
-    data[j] = test.get("Nerror")
-
-#%%
-# Plot the convergence test result
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-f, axes = plt.subplots(figsize = (6,4))
-
-plt.xscale("log")
-plt.yscale("log")
-plt.plot(dx_data,data)
-plt.scatter(dx_data,data,label='L2 norm error',s=10)
-axes.set_title(f"Convergence test result")
-axes.set_xlabel(r"$dx$")
-axes.set_ylabel(r"$Error$")
-axes.legend()
-axes.grid()
-plt.show()
 
 # %%
 ## Developed Function Test
