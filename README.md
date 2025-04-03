@@ -20,4 +20,4 @@
  
  ## SWE.py
  
- SWE is the 
+ SWE is the class for testing shallow water equation. You can make a new test set with this simple code: test=SWE().
