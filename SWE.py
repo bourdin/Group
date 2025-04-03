@@ -28,7 +28,7 @@ class SWE:
         ### Parameter about x and t
         self.__dx = (self.__x_end - self.__x_sta)/self.__N
         ''' Difference of x '''
-        self.__x = np.arange(self.__x_sta, self.__x_end, self.__dx)
+        self.__x = np.linspace(self.__x_sta, self.__x_end, self.__N)
         ''' List of x '''
         self.__c=np.sqrt(self.__g*self.__H)
         ''' Wave speed '''
@@ -50,7 +50,7 @@ class SWE:
         ''' Surface perturvation eta '''
         self.__eta_b = np.zeros((self.__N))
         ''' Bottom bathymetry '''
-        self.__u_0 = np.zeros((self.__N))
+        self.__u_0 = np.zeros((self.__N - 1))
         ''' Initial u '''
         self.__u = self.__u_0
         ''' Amplitude of the wave '''
@@ -66,7 +66,8 @@ class SWE:
         ### Get the solution
         self.__eta_s = 0.5*np.exp(-np.square(self.__x - self.__t_end * self.__c)/self.__sigma**2)+0.5*np.exp(-np.square(self.__x + self.__t_end * self.__c)/self.__sigma**2)
         ''' Exact solution of eta '''
-        self.__u_s = (0.5*np.exp(-np.square(self.__x - self.__t_end * self.__c)/self.__sigma**2)-0.5*np.exp(-np.square(self.__x + self.__t_end * self.__c)/self.__sigma**2))/self.__c
+        self.__u_s = np.linspace(self.__x_sta+0.5*self.__dx, self.__x_end-0.5*self.__dx, self.__N - 1)
+        self.__u_s = (0.5*np.exp(-np.square(self.__u_s - self.__t_end * self.__c)/self.__sigma**2)-0.5*np.exp(-np.square(self.__u_s + self.__t_end * self.__c)/self.__sigma**2))/self.__c
         ''' Exact solution of u '''
 
         ## Get the error
@@ -104,7 +105,7 @@ class SWE:
         ''' Surface perturvation eta '''
         self.__eta_b = np.zeros((self.__N))
         ''' Bottom bathymetry '''
-        self.__u_0 = np.zeros((self.__N))
+        self.__u_0 = np.zeros((self.__N-1))
         ''' Initial u '''
         self.__u = self.__u_0
         ''' Amplitude of the wave '''
@@ -127,7 +128,8 @@ class SWE:
         import numpy as np
         self.__eta_s = 0.5*np.exp(-np.square(self.__x - self.__t_end * self.__c)/self.__sigma**2)+0.5*np.exp(-np.square(self.__x + self.__t_end * self.__c)/self.__sigma**2)
         ''' Exact solution of eta '''
-        self.__u_s = (0.5*np.exp(-np.square(self.__x - self.__t_end * self.__c)/self.__sigma**2)-0.5*np.exp(-np.square(self.__x + self.__t_end * self.__c)/self.__sigma**2))/self.__c
+        self.__u_s = np.linspace(self.__x_sta+0.5*self.__dx, self.__x_end-0.5*self.__dx, self.__N - 1)
+        self.__u_s = (0.5*np.exp(-np.square(self.__u_s - self.__t_end * self.__c)/self.__sigma**2)-0.5*np.exp(-np.square(self.__u_s + self.__t_end * self.__c)/self.__sigma**2))/self.__c
         ''' Exact solution of u '''
     
     def get_error(self):
@@ -200,15 +202,19 @@ class SWE:
             case "N":
                 self.__N = number
                 self.set_var()
+                # self.get_sol()
             case "x_end":
                 self.__x_end = number
                 self.set_var()
+                # self.get_sol()
             case "x_sta":
                 self.__x_sta = number
                 self.set_var()
+                # self.get_sol()
             case "sigma":
                 self.__sigma = number
                 self.set_var()
+                # self.get_sol()
             case "H":
                 self.__H = number
                 self.set_var()
@@ -302,7 +308,7 @@ class SWE:
         def flux_ode(t, u, eta):
             return Function.Flux(u, eta, self.__H, self.__nu, self.__dx, linearity, self.__BoundaryCondition) 
         def bernoulli_ode(t, u, eta):
-            return Function.Bernoulli(u, eta, self.__g, self.__dx, linearity, self.__BoundaryCondition)
+            return Function.Bernoulli(u, eta, self.__g, self.__nu, self.__dx, linearity, self.__BoundaryCondition)
         
         if (time == "all"):
             timestep = self.__t_step
@@ -354,11 +360,11 @@ class SWE:
 
         # plot the exact line
         plt.plot(self.__x_sol, self.__eta_sol, color = 'r', label = 'eta')
-        plt.plot(self.__x + self.__dx * 0.5, self.__u_0, color = 'b', label = 'u')
+        plt.plot(self.__x[:-1] + self.__dx * 0.5, self.__u_0, color = 'b', label = 'u')
 
         # plot the exact points
         plt.scatter(self.__x, self.__eta_0, color = 'r', label = 'point eta', s = size_c)
-        plt.scatter(self.__x + self.__dx * 0.5, self.__u_0, color = 'b', label = 'point u', s = size_c)
+        plt.scatter(self.__x[:-1] + self.__dx * 0.5, self.__u_0, color = 'b', label = 'point u', s = size_c)
         plt.ylim(-0.2, 1.5)
         axes.set_title(f"Initial Condition with sigma = {self.__sigma}, N = {self.__N}, t = {self.__t_end}")
         axes.set_xlabel(f"$x$")
@@ -379,7 +385,7 @@ class SWE:
         eta_sol = np.append(self.__eta_s, self.__eta_s[0])
         f, axes = plt.subplots(figsize = (size_a, size_b))
         plt.plot(self.__x_sol,eta_sol, color = 'r', label = 'eta')
-        plt.plot(self.__x + self.__dx * 0.5, self.__u_s, color = 'b', label = 'u')
+        plt.plot(self.__x[:-1] + self.__dx * 0.5, self.__u_s, color = 'b', label = 'u')
         axes.set_title(f"Reference Solution with sigma = {self.__sigma}, N = {self.__N}, t = {self.__t_end}")
         axes.set_xlabel(r"$x$")
         axes.set_ylabel(r"$eta$")
@@ -403,9 +409,9 @@ class SWE:
 
         # Draw numerical results
         plt.scatter(self.__x, self.__eta, color = 'r', s = 5, label = 'eta')
-        plt.scatter(self.__x + self.__dx * 0.5, self.__u, color = 'b', s = 5, label = 'u')
+        plt.scatter(self.__x[:-1] + self.__dx * 0.5, self.__u, color = 'b', s = 5, label = 'u')
         plt.plot(self.__x, self.__eta, ls = '-', color = 'r', label = 'eta',linewidth=1)
-        plt.plot(self.__x + self.__dx * 0.5, self.__u, ls = '-', color = 'b', label = 'u',linewidth=1)
+        plt.plot(self.__x[:-1] + self.__dx * 0.5, self.__u, ls = '-', color = 'b', label = 'u',linewidth=1)
 
         axes.set_title(f"Numerical Result with sigma = {self.__sigma}, N = {self.__N}, t = {self.__t_end}")
         axes.set_xlabel(r"$x$")
@@ -425,7 +431,7 @@ class SWE:
         import matplotlib.pyplot as plt
         f, axes = plt.subplots(figsize = (size_a, size_b))
         plt.plot(self.__x, self.__error_eta, color = 'r', label = 'eta error')
-        plt.plot(self.__x + self.__dx * 0.5, self.__error_u, color = 'b', label = 'u error')
+        plt.plot(self.__x[:-1] + self.__dx * 0.5, self.__error_u, color = 'b', label = 'u error')
         axes.set_title(f"Error with sigma = {self.__sigma}, N = {self.__N}, t = {self.__t_end}")
         axes.set_xlabel(r"$x$")
         axes.set_ylabel(r"$eta$")
@@ -477,7 +483,7 @@ class SWE:
             
             return ln,
 
-        ani = FuncAnimation(fig=fig, func=update, frames=np.array(list(range(self.__t_step - 400,self.__t_step))), #
+        ani = FuncAnimation(fig=fig, func=update, frames=np.array(list(range(0, self.__t_step, 2))), #self.__t_step - 400
                             init_func=init, interval=20, blit=True)
 
         rc('animation', html='html5')

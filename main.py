@@ -3,9 +3,10 @@
 from SWE import SWE
 import numpy as np
 test = SWE()
-test.set("BoundaryCondition","Open")
-test.set("t_end",10)
+test.set("BoundaryCondition","L_Open_R_Solid")
+test.set("t_end",17)
 test.set("cnu",0.2)
+test.set("eta_b",np.linspace(-0.3,.0,200))
 # test.numerical(linearity = "linear")
 # test.plot_result()
 test.animation(linearity = "linear")
