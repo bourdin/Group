@@ -12,7 +12,9 @@
 
  Python version should be more than 3.10 to run the 'match' and 'case' in the code. And the following libraries are necessary to run the code.
  * numpy
- * 
+ * scipy (used for numerical integration)
+ * matplotlib (used for plot)
+ * time (used to calculate computational time)
  
  Updates are planned for the future.
  
