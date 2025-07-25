@@ -57,17 +57,10 @@ class SWE:
         self.__h = self.__H + self.__eta - self.__eta_b
         ''' Depth of each point '''
 
-        ### Boundary Condition
-        self.__x_sol = np.append(self.__x, self.__x_end)
-        ''' Add the end point(= initial point) x '''
-        self.__eta_sol = np.append(self.__eta, self.__eta[0])
-        ''' Add the end point(= initial point) eta '''
-
         ### Get the solution
         self.__eta_s = 0.5*np.exp(-np.square(self.__x - self.__t_end * self.__c)/self.__sigma**2)+0.5*np.exp(-np.square(self.__x + self.__t_end * self.__c)/self.__sigma**2)
         ''' Exact solution of eta '''
-        self.__u_s = np.linspace(self.__x_sta+0.5*self.__dx, self.__x_end-0.5*self.__dx, self.__N - 1)
-        self.__u_s = (0.5*np.exp(-np.square(self.__u_s - self.__t_end * self.__c)/self.__sigma**2)-0.5*np.exp(-np.square(self.__u_s + self.__t_end * self.__c)/self.__sigma**2))/self.__c
+        self.__u_s = (0.5*np.exp(-np.square(self.__x[:-1] + self.__dx * 0.5 - self.__t_end * self.__c)/self.__sigma**2)-0.5*np.exp(-np.square(self.__x[:-1] + self.__dx * 0.5 + self.__t_end * self.__c)/self.__sigma**2))/self.__c
         ''' Exact solution of u '''
 
         ## Get the error
@@ -112,24 +105,21 @@ class SWE:
         self.__h = self.__H + self.__eta - self.__eta_b
         ''' Depth of each point '''
 
-        ### Boundary Condition
-        self.__x_sol = np.append(self.__x, self.__x_end)
-        ''' Add the end point(= initial point) x '''
-        self.__eta_sol = np.append(self.__eta, self.__eta[0])
-        ''' Add the end point(= initial point) eta '''
-
         ### Get the solution
         self.get_sol()
 
         ## Get the error
         self.get_error()
     
+    def Assumtion_check(self):
+        if max(self.__eta)>self.__H:
+            print("Warning: eta is larger than H (mean depth).")
+
     def get_sol(self):
         import numpy as np
         self.__eta_s = 0.5*np.exp(-np.square(self.__x - self.__t_end * self.__c)/self.__sigma**2)+0.5*np.exp(-np.square(self.__x + self.__t_end * self.__c)/self.__sigma**2)
         ''' Exact solution of eta '''
-        self.__u_s = np.linspace(self.__x_sta+0.5*self.__dx, self.__x_end-0.5*self.__dx, self.__N - 1)
-        self.__u_s = (0.5*np.exp(-np.square(self.__u_s - self.__t_end * self.__c)/self.__sigma**2)-0.5*np.exp(-np.square(self.__u_s + self.__t_end * self.__c)/self.__sigma**2))/self.__c
+        self.__u_s = (0.5*np.exp(-np.square(self.__x[:-1] + self.__dx * 0.5 - self.__t_end * self.__c)/self.__sigma**2)-0.5*np.exp(-np.square(self.__x[:-1] + self.__dx * 0.5 + self.__t_end * self.__c)/self.__sigma**2))/self.__c
         ''' Exact solution of u '''
     
     def get_error(self):
@@ -179,10 +169,8 @@ class SWE:
             case "u": return self.__u
             case "u_0": return self.__u_0
             case "h": return self.__h
-            case "x_sol": return self.__x_sol
             case "eta_s": return self.__eta_s
-            case "u_s": return self.__u_s
-            case "eta_sol": return self.__eta_sol
+            case "u_s": return self.__u_s        
             case "error_u": return self.__error_u
             case "error_eta": return self.__error_eta
             case "Nerror": return self.__Nerror
@@ -217,6 +205,7 @@ class SWE:
                 # self.get_sol()
             case "H":
                 self.__H = number
+                self.Assumtion_check()
                 self.set_var()
             case "g":
                 self.__g = number
@@ -254,6 +243,7 @@ class SWE:
                 self.__eta_0 = number
                 self.__eta = self.__eta_0
                 self.__h = self.__H + self.__eta - self.__eta_b
+                self.Assumtion_check()
             case "eta_b":
                 self.__eta_b = number
                 self.__h = self.__H + self.__eta - self.__eta_b
@@ -300,15 +290,17 @@ class SWE:
         :fuction: Get the numerical result
         '''
         
-        eta=self.__eta
-        u=self.__u
-        h=self.__h
+        eta = self.get("eta")
+        b = self.get("eta_b")
+        u=self.get("u")
+        h=self.get("h")
+        H = self.get("H")
 
         import Function
         def flux_ode(t, u, eta):
-            return Function.Flux(u, eta, self.__H, self.__nu, self.__dx, linearity, self.__BoundaryCondition) 
+            return Function.Flux(u, eta, self.__H, self.__eta_b, self.__nu, self.__dx, linearity, self.__BoundaryCondition) 
         def bernoulli_ode(t, u, eta):
-            return Function.Bernoulli(u, eta, self.__g, self.__nu, self.__dx, linearity, self.__BoundaryCondition)
+            return Function.Bernoulli(u, eta, self.__g, self.__eta_b, self.__nu, self.__dx, linearity, self.__BoundaryCondition)
         
         if (time == "all"):
             timestep = self.__t_step
@@ -320,20 +312,17 @@ class SWE:
             if (method == "euler"):
                 # Euler Method
                 u = u + self.__dt * bernoulli_ode((i + 1) * self.__dt, u, eta)
-                eta = eta + self.__dt * flux_ode((i + 1) * self.__dt, u, h)
+                eta = eta + self.__dt * flux_ode((i + 1) * self.__dt, u, eta)
             else:
                 from scipy import integrate
                 sol = integrate.solve_ivp(bernoulli_ode,[i*self.__dt,(i+1)*self.__dt], u, eta, method=method, t_eval=[self.__dt*(i+1)])
                 u=sol.y.flatten()
-                sol = integrate.solve_ivp(flux_ode,[i*self.__dt,(i+1)*self.__dt], u, h, method=method, t_eval=[self.__dt*(i+1)])
+                sol = integrate.solve_ivp(flux_ode,[i*self.__dt,(i+1)*self.__dt], u, eta, method=method, t_eval=[self.__dt*(i+1)])
                 eta=sol.y.flatten()
-            h= eta + self.__H
-
+            h = H + eta - b
         self.__u = u
         self.__eta = eta
-        self.__h = self.__H + self.__eta - self.__eta_b
-        self.__error_u = self.__u_s - self.__u
-        self.__error_eta = self.__eta_s - self.__eta
+        self.__h = h
 
     def error(self):
         '''
@@ -341,13 +330,15 @@ class SWE:
         :fuction: Calculate(Update) the error
         '''
         import numpy as np
+        self.__error_u = self.get("u_s") - self.get("u")
+        self.__error_eta = self.get("eta_s") - self.get("eta")
         L2sqe = np.mean(self.__error_eta**2)
         L2sqs = np.mean(self.__eta_s**2)
         L2norm = np.sqrt(L2sqe/L2sqs)
         self.__Nerror = L2norm
         print(f"L2 norm of eta: {L2norm}")
 
-    def plot_ini(self, size_a = 6, size_b = 4, size_c = 5):
+    def plot_ini(self, list = ["eta"] , size_a = 6, size_b = 4, size_c = 5):
         '''
         :self: SWE Class name
         :size_a: Horizontal length of plot
@@ -357,15 +348,23 @@ class SWE:
         '''
         import matplotlib.pyplot as plt
         f, axes = plt.subplots(figsize = (size_a, size_b))
-
-        # plot the exact line
-        plt.plot(self.__x_sol, self.__eta_sol, color = 'r', label = 'eta')
-        plt.plot(self.__x[:-1] + self.__dx * 0.5, self.__u_0, color = 'b', label = 'u')
-
-        # plot the exact points
-        plt.scatter(self.__x, self.__eta_0, color = 'r', label = 'point eta', s = size_c)
-        plt.scatter(self.__x[:-1] + self.__dx * 0.5, self.__u_0, color = 'b', label = 'point u', s = size_c)
-        plt.ylim(-0.2, 1.5)
+        
+        for i in list:
+            match i:
+                case "eta":
+                    # plot the eta
+                    plt.plot(self.__x, self.__eta_0, color = 'r', label = 'eta')
+                    plt.scatter(self.__x, self.__eta_0, color = 'r', label = 'point eta', s = size_c)
+                case "b":    
+                    # plot the bathymetry
+                    plt.plot(self.__x, -self.__H + self.__eta_b, color = 'g', label = 'bathymetry')
+                    plt.scatter(self.__x, -self.__H + self.__eta_b, color = 'g', label = 'point bathymetry', s = size_c)                
+                case "u":
+                    # plot the u
+                    plt.plot(self.__x[:-1] + self.__dx * 0.5, self.__u_0, color = 'b', label = 'u')
+                    plt.scatter(self.__x[:-1] + self.__dx * 0.5, self.__u_0, color = 'b', label = 'point u', s = size_c)
+        
+        plt.ylim(-2, 1.5)
         axes.set_title(f"Initial Condition with sigma = {self.__sigma}, N = {self.__N}, t = {self.__t_end}")
         axes.set_xlabel(f"$x$")
         axes.set_ylabel(f"$eta$")
@@ -384,7 +383,7 @@ class SWE:
         import matplotlib.pyplot as plt
         eta_sol = np.append(self.__eta_s, self.__eta_s[0])
         f, axes = plt.subplots(figsize = (size_a, size_b))
-        plt.plot(self.__x_sol,eta_sol, color = 'r', label = 'eta')
+        plt.plot(self.__x,eta_sol, color = 'r', label = 'eta')
         plt.plot(self.__x[:-1] + self.__dx * 0.5, self.__u_s, color = 'b', label = 'u')
         axes.set_title(f"Reference Solution with sigma = {self.__sigma}, N = {self.__N}, t = {self.__t_end}")
         axes.set_xlabel(r"$x$")
@@ -452,11 +451,11 @@ class SWE:
         from matplotlib.animation import FuncAnimation
         from matplotlib import rc
 
-        data = [[0 for col in range(self.__N + 1)] for row in range(self.__t_step)]
+        data = np.zeros((self.__N,self.__t_step))
 
         for i in range(0, self.__t_step):
             self.numerical(linearity=linearity, time = "one")
-            data[i] = np.append(self.__eta, self.__eta[0])
+            data[:,i] = self.get("eta")
 
         # Make the Animation
         fig, ax = plt.subplots(figsize=(size_a,size_b))
@@ -465,9 +464,9 @@ class SWE:
         x = np.linspace(self.__x_sta, self.__x_end, self.__N)
         ln, = plt.plot([], [], )
 
-        def init():    
+        def init():
             ax.set_xlim(self.__x_sta - 1, self.__x_end + 1)
-            ax.set_ylim(-0.2, 1.2)
+            ax.set_ylim(-1, 1.2)
             ax.set_title(f"Animation with sigma = {self.__sigma}, N = {self.__N}, t = {self.__t_end}")
             ax.set_xlabel(r"$x$")
             ax.set_ylabel(r"$eta$")
@@ -477,9 +476,8 @@ class SWE:
             return ln,
 
         def update(i):    
-            y = data[i]
-            
-            ln.set_data(self.__x_sol, y)
+            y = data[:,i]
+            ln.set_data(x, y)
             
             return ln,
 
@@ -490,13 +488,13 @@ class SWE:
         ani
         ani.save('fig.gif', writer='imagemagick', fps=15, dpi=100)
 
-    def ConvergenceTest(self, dxList = [0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001]):
+    def ConvergenceTest(self, dxList = [0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001]): #
         # Experiment for the convergence test
         import numpy as np
         import matplotlib.pyplot as plt
         import time
 
-        test_time = 5
+        test_time = 1
         dx_data = dxList
         N_data = [int((self.get("x_end") - self.get("x_sta")) / x) for x in dx_data]
 
@@ -512,9 +510,11 @@ class SWE:
                 start = time.time()
                 self.set("N", N_data[j])
                 self.set("dx", dx_data[j])
+                self.set_var()                
+                self.set("t_end", 10)
+                self.numerical()
                 self.set("eta_s", self.get("eta_0"))
                 self.set("u_s", self.get("u_0"))
-                self.numerical()
                 self.error()
 
                 end = time.time()
@@ -539,10 +539,10 @@ class SWE:
         plt.yscale("log")
         plt.plot(dx_data,mean_data)
         plt.scatter(dx_data,mean_data,label='L2 Norm error',s=10)
-        plt.plot(dx_data,pow(np.array(dx_data),2)*100*mean_data[0],color='r',linestyle='dashed')
-        axes.set_title(f"Convergence test result")
-        axes.set_xlabel(r"$dx$")
-        axes.set_ylabel(r"$Error$")
+        plt.plot(dx_data,pow(np.array(dx_data),2)*100*mean_data[0],color='r',linestyle='dashed', label='slope = 2')
+        # axes.set_title(f"Convergence test result")
+        axes.set_xlabel(r"$\Delta x$")
+        axes.set_ylabel("L2 Norm error")
         axes.legend()
         axes.grid()
         plt.show()
@@ -552,11 +552,13 @@ class SWE:
         plt.xscale("log")
         plt.yscale("log")
         plt.plot(dx_data,mean_time_data)
-        plt.scatter(dx_data,mean_time_data,label='Run time',s=10)
-        plt.plot(dx_data,1/pow(np.array(dx_data)*10,2)*mean_time_data[0],color='r',linestyle='dashed')
-        axes.set_title(f"Run time test result")
-        axes.set_xlabel(r"$dx$")
-        axes.set_ylabel(r"$Run time$")
+        plt.scatter(dx_data,mean_time_data,label='Computational time',s=10)
+        plt.plot(dx_data,1/pow(np.array(dx_data)*10,2)*mean_time_data[0],color='r',linestyle='dashed',label='slope = -2')
+        plt.plot(dx_data,1/pow(np.array(dx_data)*10,1)*mean_time_data[0],color='r',linestyle='dashed',label='slope = -1')
+        # plt.plot(dx_data,1/pow(np.array(dx_data)*10,1)*mean_time_data[0],color='r',linestyle='dashed')
+        # axes.set_title(f"Run time test result")
+        axes.set_xlabel(r"$\Delta x$")
+        axes.set_ylabel("Computational time")
         axes.legend()
         axes.grid()
         plt.show()

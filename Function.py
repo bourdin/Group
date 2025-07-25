@@ -6,7 +6,7 @@ import numpy as np
 def interpolation_node_to_edge(v, BoundaryCondition):
     '''
     :v: eta (node)
-    :BoundaryCondition: Periodic, Infinite, SolidWall
+    :BoundaryCondition: Periodic, Open, SolidWall
     :return: interpolation of two points edge
     '''
     if (BoundaryCondition=="Periodic"):
@@ -16,7 +16,7 @@ def interpolation_node_to_edge(v, BoundaryCondition):
 def interpolation_edge_to_node(v, BoundaryCondition):
     '''
     :v: u (edge)
-    :BoundaryCondition: Periodic, Infinite, SolidWall
+    :BoundaryCondition: Periodic, Open, SolidWall
     :return: interpolation of two points node
     '''
     match BoundaryCondition:
@@ -79,7 +79,7 @@ def derivative(v1,v2,dx):
 
 # Flux and Bernoulli Function
 
-def Flux(v1,v2,c,nu,dx,state,BoundaryCondition):
+def Flux(v1,v2,c,b,nu,dx,state,BoundaryCondition):
     '''
     :v1: u vector
     :v2: eta vector
@@ -108,10 +108,10 @@ def Flux(v1,v2,c,nu,dx,state,BoundaryCondition):
                     eta_end = derivative(f[-1],0,dx)
                     F = divergence(f[:-1],f[1:],dx)
                     return np.append(eta_sta, np.append(F,eta_end))
-
         case "non_linear":
             v2=interpolation_node_to_edge(v2, BoundaryCondition)
-            f=-np.multiply(v1,v2+c)
+            b=interpolation_node_to_edge(b, BoundaryCondition)
+            f=-np.multiply(v1,v2+c-b)
             match BoundaryCondition:
                 case "Periodic": return divergence(np.append(f[-1],f),np.append(f,f[0]),dx)
                 case "SolidWall": return divergence(np.append(0,f),np.append(f,0),dx)
@@ -131,42 +131,29 @@ def Flux(v1,v2,c,nu,dx,state,BoundaryCondition):
                     F = divergence(f[:-1],f[1:],dx)
                     return np.append(eta_sta, np.append(F,eta_end))
         case "non_linear_s":
-            eta_x = v2*2
-            eta_x [1:-1] = (v2[2:] - 2*v2[1:-1] + v2[:-2]) / dx**2
-            eta_x[0] = (v2[1] - 2*v2[0] + v2[-1]) / dx**2
-            eta_x[-1] = (v2[0] - 2*v2[-1] + v2[-2]) / dx**2
             v2=interpolation_node_to_edge(v2, BoundaryCondition)
-            f=-np.multiply(v1,v2+c)
+            b=interpolation_node_to_edge(b, BoundaryCondition)
+            f=-np.multiply(v1,v2+c-b)
             match BoundaryCondition:
-                case "Periodic":
-                    return divergence(np.append(f[-1],f),np.append(f,f[0]),dx)+nu*eta_x
-                case "SolidWall": 
-                    eta_x[0] = 0
-                    eta_x[-1] = 0
-                    return divergence(np.append(0,f),np.append(f,0),dx)+nu*eta_x
+                case "Periodic": return divergence(np.append(f[-1],f),np.append(f,f[0]),dx)
+                case "SolidWall": return divergence(np.append(0,f),np.append(f,0),dx)
                 case "Open":
-                    eta_x[0] = 0
-                    eta_x[-1] = 0
                     eta_sta = c*derivative(v2[0],v2[1],dx)
                     eta_end = -c*derivative(v2[-2],v2[-1],dx)
                     F = divergence(f[:-1],f[1:],dx)
-                    return np.append(eta_sta, np.append(F,eta_end))+nu*eta_x
+                    return np.append(eta_sta, np.append(F,eta_end))
                 case "L_Solid_R_Open":
-                    eta_x[0] = 0
-                    eta_x[-1] = 0
                     eta_sta = derivative(0,f[0],dx)
                     eta_end = -c*derivative(v2[-2],v2[-1],dx)
                     F = divergence(f[:-1],f[1:],dx)
-                    return np.append(eta_sta, np.append(F,eta_end))+nu*eta_x
+                    return np.append(eta_sta, np.append(F,eta_end))
                 case "L_Open_R_Solid":
-                    eta_x[0] = 0
-                    eta_x[-1] = 0
                     eta_sta = c*derivative(v2[0],v2[1],dx)
                     eta_end = derivative(f[-1],0,dx)
                     F = divergence(f[:-1],f[1:],dx)
-                    return np.append(eta_sta, np.append(F,eta_end))+nu*eta_x
+                    return np.append(eta_sta, np.append(F,eta_end))
 
-def Bernoulli(v1,v2,c,nu,dx,state,BoundaryCondition):
+def Bernoulli(v1,v2,c,b,nu,dx,state,BoundaryCondition):
     '''
     :v1: u vector
     :v2: eta vector
@@ -184,10 +171,54 @@ def Bernoulli(v1,v2,c,nu,dx,state,BoundaryCondition):
             v1=interpolation_edge_to_node(v1, BoundaryCondition)
             f=-0.5*v2*c-v1**2
             return grad(f[:-1],f[1:],dx)
-        case "non_linear_s":
-            v1=interpolation_edge_to_node(v1, BoundaryCondition)
-            f=-0.5*v2*c-v1**2
-            return grad(f[:-1],f[1:],dx)
+        case "non_linear_s": 
+            eta_x = v1*2
+            match BoundaryCondition:
+                case "Periodic":
+                    eta_x [1:-1] = (v1[2:] - 2*v1[1:-1] + v1[:-2]) / dx**2
+                    eta_x[0] = (v1[1] - 2*v1[0] + v1[-1]) / dx**2
+                    eta_x[-1] = (v1[0] - 2*v1[-1] + v1[-2]) / dx**2
+                    v1=interpolation_edge_to_node(v1, BoundaryCondition)
+                    f=-0.5*v2*c-v1**2
+                    return grad(f[:-1],f[1:],dx)+nu*eta_x
+                case "SolidWall":
+                    eta_x [1:-1] = (v1[2:] - 2*v1[1:-1] + v1[:-2]) / dx**2
+                    eta_x[0] = 0
+                    eta_x[-1] = 0
+                    v1=interpolation_edge_to_node(v1, BoundaryCondition)
+                    f=-0.5*v2*c-v1**2
+                    return grad(f[:-1],f[1:],dx)+nu*eta_x
+                case "Open":
+                    eta_x [1:-1] = (v1[2:] - 2*v1[1:-1] + v1[:-2]) / dx**2
+                    eta_x[0] = 0
+                    eta_x[-1] = 0
+                    eta_sta = c*derivative(v1[0],v1[1],dx)
+                    eta_end = -c*derivative(v1[-2],v1[-1],dx)
+                    v1=interpolation_edge_to_node(v1, BoundaryCondition)
+                    f=-0.5*v2*c-v1**2
+                    F=grad(f[:-1],f[1:],dx)
+                    return np.append(eta_sta, np.append(F[1:-1],eta_end))+nu*eta_x
+                case "L_Solid_R_Open":
+                    eta_x = v1*2
+                    eta_x [1:-1] = (v1[2:] - 2*v1[1:-1] + v1[:-2]) / dx**2
+                    eta_x[0] = 0
+                    eta_x[-1] = 0                    
+                    eta_end = -c*derivative(v1[-2],v1[-1],dx)
+                    v1=interpolation_edge_to_node(v1, BoundaryCondition)
+                    f=-0.5*v2*c-v1**2
+                    F=grad(f[:-1],f[1:],dx)
+                    return np.append(F[:-1],eta_end)+nu*eta_x
+                case "L_Open_R_Solid":
+                    eta_x = v1*2
+                    eta_x [1:-1] = (v1[2:] - 2*v1[1:-1] + v1[:-2]) / dx**2
+                    eta_x[0] = 0
+                    eta_x[-1] = 0
+                    eta_sta = c*derivative(v1[0],v1[1],dx)
+                    v1=interpolation_edge_to_node(v1, BoundaryCondition)
+                    f=-0.5*v2*c-v1**2
+                    F=grad(f[:-1],f[1:],dx)
+                    return np.append(eta_sta, F[1:])+nu*eta_x
+            
         
 
 # %%
