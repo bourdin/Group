@@ -348,26 +348,28 @@ class SWE:
         '''
         import matplotlib.pyplot as plt
         f, axes = plt.subplots(figsize = (size_a, size_b))
-        
+        font = 14
         for i in list:
             match i:
                 case "eta":
                     # plot the eta
-                    plt.plot(self.__x, self.__eta_0, color = 'r', label = 'eta')
-                    plt.scatter(self.__x, self.__eta_0, color = 'r', label = 'point eta', s = size_c)
+                    plt.plot(self.__x, self.__eta_0, color = 'r', label = r"$\eta$")
+                    plt.scatter(self.__x, self.__eta_0, color = 'r', s = size_c)
                 case "b":    
                     # plot the bathymetry
                     plt.plot(self.__x, -self.__H + self.__eta_b, color = 'g', label = 'bathymetry')
-                    plt.scatter(self.__x, -self.__H + self.__eta_b, color = 'g', label = 'point bathymetry', s = size_c)                
+                    plt.scatter(self.__x, -self.__H + self.__eta_b, color = 'g', s = size_c)                
                 case "u":
                     # plot the u
                     plt.plot(self.__x[:-1] + self.__dx * 0.5, self.__u_0, color = 'b', label = 'u')
-                    plt.scatter(self.__x[:-1] + self.__dx * 0.5, self.__u_0, color = 'b', label = 'point u', s = size_c)
+                    plt.scatter(self.__x[:-1] + self.__dx * 0.5, self.__u_0, color = 'b', s = size_c)
         
         plt.ylim(-2, 1.5)
-        axes.set_title(f"Initial Condition with sigma = {self.__sigma}, N = {self.__N}, t = {self.__t_end}")
-        axes.set_xlabel(f"$x$")
-        axes.set_ylabel(f"$eta$")
+        #axes.set_title(f"Initial Condition with sigma = {self.__sigma}, N = {self.__N}, t = {self.__t_end}")
+        axes.set_xlabel(f"$x$",fontsize=font)
+        axes.set_ylabel(r"$\eta$",fontsize=font)
+        plt.xticks(fontsize = font)
+        plt.yticks(fontsize = font)
         axes.legend()
         axes.grid()
         plt.show()
@@ -383,11 +385,11 @@ class SWE:
         import matplotlib.pyplot as plt
         eta_sol = np.append(self.__eta_s, self.__eta_s[0])
         f, axes = plt.subplots(figsize = (size_a, size_b))
-        plt.plot(self.__x,eta_sol, color = 'r', label = 'eta')
+        plt.plot(self.__x,eta_sol, color = 'r', label = r"$\eta$")
         plt.plot(self.__x[:-1] + self.__dx * 0.5, self.__u_s, color = 'b', label = 'u')
-        axes.set_title(f"Reference Solution with sigma = {self.__sigma}, N = {self.__N}, t = {self.__t_end}")
+        #axes.set_title(f"Reference Solution with sigma = {self.__sigma}, N = {self.__N}, t = {self.__t_end}")
         axes.set_xlabel(r"$x$")
-        axes.set_ylabel(r"$eta$")
+        axes.set_ylabel(r"$\eta$")
         axes.legend()
         axes.grid()
         plt.show()
@@ -407,14 +409,14 @@ class SWE:
         # plt.plot(self.__x + self.__dx * 0.5, self.__u_s, ls = '-', color = 'c', label = 'u reference')
 
         # Draw numerical results
-        plt.scatter(self.__x, self.__eta, color = 'r', s = 5, label = 'eta')
-        plt.scatter(self.__x[:-1] + self.__dx * 0.5, self.__u, color = 'b', s = 5, label = 'u')
-        plt.plot(self.__x, self.__eta, ls = '-', color = 'r', label = 'eta',linewidth=1)
+        plt.scatter(self.__x, self.__eta, color = 'r', s = 5)
+        plt.scatter(self.__x[:-1] + self.__dx * 0.5, self.__u, color = 'b', s = 5)
+        plt.plot(self.__x, self.__eta, ls = '-', color = 'r', label = r"$\eta$",linewidth=1)
         plt.plot(self.__x[:-1] + self.__dx * 0.5, self.__u, ls = '-', color = 'b', label = 'u',linewidth=1)
 
-        axes.set_title(f"Numerical Result with sigma = {self.__sigma}, N = {self.__N}, t = {self.__t_end}")
+        #axes.set_title(f"Numerical Result with sigma = {self.__sigma}, N = {self.__N}, t = {self.__t_end}")
         axes.set_xlabel(r"$x$")
-        axes.set_ylabel(r"$eta$")
+        axes.set_ylabel(r"$\eta$")
         axes.legend()
         axes.grid()
         plt.ylim(-0.5,1)
@@ -429,11 +431,11 @@ class SWE:
         '''
         import matplotlib.pyplot as plt
         f, axes = plt.subplots(figsize = (size_a, size_b))
-        plt.plot(self.__x, self.__error_eta, color = 'r', label = 'eta error')
+        plt.plot(self.__x, self.__error_eta, color = 'r', label = r"$\eta$ error")
         plt.plot(self.__x[:-1] + self.__dx * 0.5, self.__error_u, color = 'b', label = 'u error')
-        axes.set_title(f"Error with sigma = {self.__sigma}, N = {self.__N}, t = {self.__t_end}")
+        #axes.set_title(f"Error with sigma = {self.__sigma}, N = {self.__N}, t = {self.__t_end}")
         axes.set_xlabel(r"$x$")
-        axes.set_ylabel(r"$eta$")
+        axes.set_ylabel(r"$\eta$")
         axes.legend()
         axes.grid()
         plt.ylim(-1,1)
@@ -467,9 +469,9 @@ class SWE:
         def init():
             ax.set_xlim(self.__x_sta - 1, self.__x_end + 1)
             ax.set_ylim(-1, 1.2)
-            ax.set_title(f"Animation with sigma = {self.__sigma}, N = {self.__N}, t = {self.__t_end}")
+            #ax.set_title(f"Animation with sigma = {self.__sigma}, N = {self.__N}, t = {self.__t_end}")
             ax.set_xlabel(r"$x$")
-            ax.set_ylabel(r"$eta$")
+            ax.set_ylabel(r"\$eta$")
             # ax.legend()
             ax.grid(True)
             
